@@ -50,13 +50,55 @@ export function ResultsPanel({ results, config, isProcessing, document }: Result
 
   if (isProcessing) {
     return (
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white/70 backdrop-blur-sm rounded-2xl border border-gray-200/50 shadow-xl p-12 text-center">
-          <Loader2 className="w-12 h-12 text-blue-600 mx-auto mb-4 animate-spin" />
-          <h2 className="text-2xl font-semibold text-gray-900 mb-2">Processing Document</h2>
-          <p className="text-gray-600">LLaMA 4 is analyzing your document...</p>
-          <div className="mt-6 bg-gray-200 rounded-full h-2 overflow-hidden">
-            <div className="bg-gradient-to-r from-blue-600 to-purple-600 h-full rounded-full animate-pulse w-3/4"></div>
+      <div className="max-w-5xl mx-auto">
+        <div className="bg-white/60 backdrop-blur-xl rounded-3xl border border-white/30 shadow-2xl p-8 sm:p-12 lg:p-16 text-center">
+          <div className="space-y-8">
+            {/* Animated processing icon */}
+            <div className="relative">
+              <div className="w-24 h-24 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full flex items-center justify-center shadow-xl">
+                <Loader2 className="w-12 h-12 text-white animate-spin" />
+              </div>
+              <div className="absolute inset-0 w-24 h-24 mx-auto bg-gradient-to-r from-blue-500 to-purple-500 rounded-full animate-ping opacity-20"></div>
+            </div>
+
+            <div className="space-y-4">
+              <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-gray-900">Processing Document</h2>
+              <p className="text-gray-600 text-lg max-w-2xl mx-auto leading-relaxed">
+                LLaMA 4 is analyzing your document with advanced AI techniques...
+              </p>
+            </div>
+
+            {/* Enhanced progress bar */}
+            <div className="max-w-md mx-auto space-y-4">
+              <div className="bg-gray-200/60 rounded-full h-3 overflow-hidden shadow-inner">
+                <div className="bg-gradient-to-r from-blue-500 via-purple-500 to-pink-500 h-full rounded-full animate-pulse shadow-lg transition-all duration-1000 w-3/4"></div>
+              </div>
+              <div className="flex justify-between text-sm text-gray-500">
+                <span>Analyzing content...</span>
+                <span>75%</span>
+              </div>
+            </div>
+
+            {/* Processing steps */}
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 max-w-2xl mx-auto mt-8">
+              {[
+                { step: "Reading", icon: "📖", active: true },
+                { step: "Analyzing", icon: "🧠", active: true },
+                { step: "Generating", icon: "⚡", active: false },
+              ].map((item, index) => (
+                <div
+                  key={index}
+                  className={`p-4 rounded-xl transition-all duration-300 ${
+                    item.active ? "bg-blue-50/80 border border-blue-200/50" : "bg-gray-50/50"
+                  }`}
+                >
+                  <div className="text-2xl mb-2">{item.icon}</div>
+                  <div className={`text-sm font-medium ${item.active ? "text-blue-700" : "text-gray-500"}`}>
+                    {item.step}
+                  </div>
+                </div>
+              ))}
+            </div>
           </div>
         </div>
       </div>

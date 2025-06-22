@@ -4,6 +4,7 @@ import { useState } from "react"
 import { UploadPanel } from "@/components/upload-panel"
 import { ConfigPanel } from "@/components/config-panel"
 import { ResultsPanel } from "@/components/results-panel"
+import AnimatedBackground from "@/components/animated-background"
 
 export type ProcessingStage = "upload" | "config" | "processing" | "results"
 export type OutputFormat = "py" | "js" | "json"
@@ -64,7 +65,6 @@ export default function DocumentAnalyzer() {
     setIsProcessing(true)
 
     try {
-      // Mock API call to process document
       const response = await fetch("/api/process-document", {
         method: "POST",
         headers: {
@@ -93,21 +93,39 @@ export default function DocumentAnalyzer() {
     setIsProcessing(false)
   }
 
+  const getStageIndex = (stageName: ProcessingStage) => {
+    const stages = ["upload", "config", "processing", "results"]
+    return stages.indexOf(stageName)
+  }
+
+  const currentStageIndex = getStageIndex(stage)
+
   return (
-    <div className="min-h-screen bg-gradient-to-br from-blue-50 via-white to-purple-50">
+    <div className="min-h-screen relative overflow-hidden">
+      <AnimatedBackground />
+
       {/* Header */}
-      <div className="bg-white/80 backdrop-blur-sm border-b border-gray-200/50 sticky top-0 z-10">
-        <div className="max-w-6xl mx-auto px-6 py-4">
+      <div className="bg-white/60 backdrop-blur-xl border-b border-white/20 sticky top-0 z-50 transition-all duration-300">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center space-x-3">
-              <div className="w-8 h-8 bg-gradient-to-r from-blue-600 to-purple-600 rounded-lg flex items-center justify-center">
-                <span className="text-white font-bold text-sm">M</span>
+              <div className="w-10 h-10 bg-gradient-to-br from-blue-500 via-purple-500 to-pink-500 rounded-xl flex items-center justify-center shadow-lg transform hover:scale-105 transition-transform duration-200">
+                <span className="text-white font-bold text-lg">M</span>
               </div>
-              <h1 className="text-xl font-semibold text-gray-900">Document Analyzer</h1>
-              <span className="text-sm text-gray-500 bg-gray-100 px-2 py-1 rounded-full">LLaMA 4</span>
+              <div>
+                <h1 className="text-xl sm:text-2xl font-semibold text-gray-900">Document Analyzer</h1>
+                <div className="flex items-center space-x-2 mt-1">
+                  <span className="text-xs sm:text-sm text-gray-500 bg-gradient-to-r from-blue-100 to-purple-100 px-3 py-1 rounded-full border border-white/50">
+                    Powered by LLaMA 4
+                  </span>
+                </div>
+              </div>
             </div>
             {stage !== "upload" && (
-              <button onClick={handleReset} className="text-sm text-gray-600 hover:text-gray-900 transition-colors">
+              <button
+                onClick={handleReset}
+                className="text-sm text-gray-600 hover:text-gray-900 transition-all duration-200 hover:bg-white/50 px-3 py-2 rounded-lg backdrop-blur-sm"
+              >
                 Start Over
               </button>
             )}
@@ -116,52 +134,77 @@ export default function DocumentAnalyzer() {
       </div>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-6 py-8">
-        <div className="space-y-8">
-          {/* Progress Indicator */}
-          <div className="flex items-center justify-center space-x-4">
-            {["upload", "config", "results"].map((stepName, index) => (
-              <div key={stepName} className="flex items-center">
-                <div
-                  className={`w-8 h-8 rounded-full flex items-center justify-center text-sm font-medium transition-all ${
-                    stage === stepName || (stepName === "results" && stage === "processing")
-                      ? "bg-blue-600 text-white"
-                      : index < ["upload", "config", "processing", "results"].indexOf(stage)
-                        ? "bg-green-500 text-white"
-                        : "bg-gray-200 text-gray-600"
-                  }`}
-                >
-                  {index + 1}
-                </div>
-                {index < 2 && (
-                  <div
-                    className={`w-12 h-0.5 mx-2 transition-colors ${
-                      index < ["upload", "config", "processing", "results"].indexOf(stage) - 1
-                        ? "bg-green-500"
-                        : "bg-gray-200"
-                    }`}
-                  />
-                )}
-              </div>
-            ))}
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-6 sm:py-8 lg:py-12">
+        <div className="space-y-8 lg:space-y-12">
+          {/* Enhanced Progress Indicator */}
+          <div className="flex items-center justify-center">
+            <div className="flex items-center space-x-2 sm:space-x-4 bg-white/40 backdrop-blur-xl rounded-2xl p-4 sm:p-6 border border-white/30 shadow-xl">
+              {["upload", "config", "results"].map((stepName, index) => {
+                const isActive = currentStageIndex === index || (stepName === "results" && stage === "processing")
+                const isCompleted = index < currentStageIndex || (stage === "results" && stepName !== "results")
+                const stepLabels = ["Upload", "Configure", "Results"]
+
+                return (
+                  <div key={stepName} className="flex items-center">
+                    <div className="flex flex-col items-center space-y-2">
+                      <div
+                        className={`w-10 h-10 sm:w-12 sm:h-12 rounded-full flex items-center justify-center text-sm font-medium transition-all duration-500 transform ${
+                          isActive
+                            ? "bg-gradient-to-r from-blue-500 to-purple-500 text-white scale-110 shadow-lg"
+                            : isCompleted
+                              ? "bg-gradient-to-r from-green-400 to-emerald-500 text-white scale-105 shadow-md"
+                              : "bg-gray-200/80 text-gray-600 hover:bg-gray-300/80"
+                        }`}
+                      >
+                        {isCompleted ? "✓" : index + 1}
+                      </div>
+                      <span
+                        className={`text-xs sm:text-sm font-medium transition-colors duration-300 ${
+                          isActive ? "text-blue-600" : isCompleted ? "text-green-600" : "text-gray-500"
+                        }`}
+                      >
+                        {stepLabels[index]}
+                      </span>
+                    </div>
+                    {index < 2 && (
+                      <div
+                        className={`w-8 sm:w-16 h-0.5 mx-2 sm:mx-4 transition-all duration-500 ${
+                          index < currentStageIndex - 1 || (stage === "results" && index === 0)
+                            ? "bg-gradient-to-r from-green-400 to-emerald-500"
+                            : "bg-gray-300/60"
+                        }`}
+                      />
+                    )}
+                  </div>
+                )
+              })}
+            </div>
           </div>
 
-          {/* Stage Content */}
-          {stage === "upload" && (
-            <UploadPanel
-              onFileUpload={handleFileUpload}
-              onStartProcessing={handleStartProcessing}
-              document={document}
-            />
-          )}
+          {/* Stage Content with Enhanced Transitions */}
+          <div className="transition-all duration-700 ease-out">
+            {stage === "upload" && (
+              <div className="animate-in fade-in slide-in-from-bottom-8 duration-700">
+                <UploadPanel
+                  onFileUpload={handleFileUpload}
+                  onStartProcessing={handleStartProcessing}
+                  document={document}
+                />
+              </div>
+            )}
 
-          {stage === "config" && document && (
-            <ConfigPanel config={config} onConfigSubmit={handleConfigSubmit} document={document} />
-          )}
+            {stage === "config" && document && (
+              <div className="animate-in fade-in slide-in-from-right-8 duration-700">
+                <ConfigPanel config={config} onConfigSubmit={handleConfigSubmit} document={document} />
+              </div>
+            )}
 
-          {(stage === "processing" || stage === "results") && (
-            <ResultsPanel results={results} config={config} isProcessing={isProcessing} document={document} />
-          )}
+            {(stage === "processing" || stage === "results") && (
+              <div className="animate-in fade-in slide-in-from-left-8 duration-700">
+                <ResultsPanel results={results} config={config} isProcessing={isProcessing} document={document} />
+              </div>
+            )}
+          </div>
         </div>
       </div>
     </div>
