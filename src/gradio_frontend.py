@@ -109,7 +109,7 @@ class GradioFrontend:
     def create_interface(self):
         """Create the Gradio interface"""
         with gr.Blocks(theme=Soft(), css=".gradio-container {max-width: 960px !important; margin: auto !important;}") as demo:
-            gr.Markdown("# Paper to Code  paperswithcode UI")
+            gr.Markdown("# CICK - Cursor but In Context knowledge")
             gr.Markdown("Enter an arXiv URL to process a research paper and generate Python code implementation.")
             
             with gr.Row():
