@@ -1,4 +1,4 @@
-# AI Navigator Backend
+# In-Context Cursor App
 
 This project is an advanced research paper analyzer and code generator powered by Llama 4 (1M context window). It provides:
 - **FastAPI backend** for chat, multimodal, paper-to-code, and PDF processing endpoints
@@ -120,3 +120,4 @@ The model's performance was excellent across all tasks. Key aspects include:
 2.  **Advanced Code Generation:** It successfully translated a high-level algorithm from a pseudo-code description into a complete, correct, and well-documented Python implementation, including generating a `requirements.txt` file and a `pytest` test suite.
 3.  **Complex Instruction Following:** The model consistently adhered to the complex system prompt, providing structured JSON output and following detailed instructions for code generation, docstrings, and error handling.
 4.  **Reference Extraction:** It effectively processed raw text from a PDF to extract and format citations, demonstrating strong reasoning and NLP capabilities.
+
