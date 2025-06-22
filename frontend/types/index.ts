@@ -12,9 +12,16 @@ export interface ProcessingConfig {
   mode: ProcessingMode
 }
 
+export interface VerificationItem {
+  claim: string
+  question: string
+  answer: string
+}
+
 export interface ProcessingResults {
   summary?: string
   sections?: Record<string, string>
   generatedCode?: string
   tablesAnalysis?: string
+  verifications?: VerificationItem[]
 } 

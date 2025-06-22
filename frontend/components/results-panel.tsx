@@ -1,6 +1,6 @@
 "use client"
 
-import { Download, AlertCircle, Loader2, FileText, Code, BookOpen, BrainCircuit, Table } from "lucide-react"
+import { Download, AlertCircle, Loader2, FileText, Code, BookOpen, BrainCircuit, Table, CheckSquare } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { DocumentData, ProcessingConfig, ProcessingResults } from "@/types"
 
@@ -127,6 +127,28 @@ export function ResultsPanel({ results, config, isProcessing, documentData }: Re
         {results.tablesAnalysis && (
           <ResultCard icon={<Table className="w-5 h-5 mr-3 text-yellow-600"/>} title="Tables Analysis">
             <p className="whitespace-pre-wrap">{results.tablesAnalysis}</p>
+          </ResultCard>
+        )}
+
+        {results.verifications && results.verifications.length > 0 && (
+          <ResultCard icon={<CheckSquare className="w-5 h-5 mr-3 text-cyan-600"/>} title="Claims & Verifications">
+            <div className="space-y-6">
+              {results.verifications.map((item, index) => (
+                <div key={index} className="p-4 bg-gray-50/80 rounded-lg">
+                  <h4 className="font-semibold text-gray-800 mb-2">Claim {index + 1}: {item.claim}</h4>
+                  <div className="pl-4 border-l-2 border-cyan-200 space-y-3">
+                    <div>
+                      <p className="font-medium text-gray-700">Verification Question:</p>
+                      <p className="text-gray-600">{item.question}</p>
+                    </div>
+                    <div>
+                      <p className="font-medium text-gray-700">AI-Generated Answer:</p>
+                      <p className="text-gray-600">{item.answer}</p>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
           </ResultCard>
         )}
 

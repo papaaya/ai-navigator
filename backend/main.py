@@ -41,11 +41,17 @@ class DocumentRequest(BaseModel):
     content: str = Field(..., description="Base64 encoded content of the uploaded file.")
     config: ProcessingConfig
 
+class VerificationItem(BaseModel):
+    claim: str = Field(..., description="A key claim or hypothesis made by the paper.")
+    question: str = Field(..., description="A critical question to verify the claim against the paper's own data.")
+    answer: str = Field(..., description="The AI's answer to the question, based on evidence from the text.")
+
 class ProcessingResponse(BaseModel):
     summary: Optional[str] = Field(None, description="Overall summary of the paper's contribution and findings.")
     sections: Optional[Dict[str, str]] = Field(None, description="Extracted sections like 'abstract', 'methodology', and 'results'.")
     generatedCode: Optional[str] = Field(None, description="Python code generated based on the paper's methodology.")
     tablesAnalysis: Optional[str] = Field(None, description="The AI's analysis of data tables found in the document.")
+    verifications: Optional[List[VerificationItem]] = Field(None, description="A list of claims and their verification from the document.")
 
 # --- Helper Functions ---
 
@@ -93,7 +99,12 @@ def generate_analysis_prompt(document_text: str, tables_text: str) -> str:
             "results": "A summary of the key findings, experimental results, or evaluation metrics."
         },
         "generatedCode": "A functional Python code implementation based on the 'methodology' section. The code should be complete and runnable if possible.",
-        "tablesAnalysis": "If tables were found, provide a detailed analysis and interpretation of the data presented in them. If no tables were found, this should be null."
+        "tablesAnalysis": "If tables were found, provide a detailed analysis and interpretation of the data presented in them. If no tables were found, this should be null.",
+        "verifications": [{
+            "claim": "A major claim or hypothesis from the paper.",
+            "question": "A critical question to validate this claim using the paper's text or data.",
+            "answer": "A detailed answer to the question, citing evidence directly from the paper's text or tables."
+        }]
     }
 
     prompt_sections = [
@@ -115,9 +126,10 @@ def generate_analysis_prompt(document_text: str, tables_text: str) -> str:
     prompt_sections.extend([
         "**Instructions:**",
         "1.  **Summarize:** Create a concise summary of the paper's main contributions and findings.",
-        "2.  **Extract Sections:** Identify and extract the content for the 'abstract', 'methodology', and 'results' sections. If a section is not clearly present, provide the most relevant information.",
-        "3.  **Analyze Tables:** If table data is provided above, analyze it and summarize its significance.",
-        "4.  **Generate Code:** Based on the extracted methodology, write a functional Python code snippet.",
+        "2.  **Extract Sections:** Identify and extract the content for the 'abstract', 'methodology', and 'results' sections.",
+        "3.  **Analyze Tables:** If table data is provided, analyze it and summarize its significance.",
+        "4.  **Verify Claims:** Identify 2-3 key claims. For each, pose a verification question and answer it using evidence from the paper.",
+        "5.  **Generate Code:** Based on the extracted methodology, write a functional Python code snippet.",
         "\n**Output Format:**",
         "You MUST output a single, valid JSON object that conforms exactly to the following schema. Do not include any explanatory text, markdown formatting, or notes outside of the JSON structure.",
         "\n**CRITICAL:** All string values within the JSON, especially in `generatedCode`, MUST be properly escaped. For example, backslashes (\\\\) and double quotes (\") must be escaped (e.g., \"my string with a \\\\ backslash and a \\\" quote.\").",
@@ -173,6 +185,7 @@ async def process_document(request: DocumentRequest):
                 sections=parsed_data.get("sections"),
                 generatedCode=parsed_data.get("generatedCode"),
                 tablesAnalysis=parsed_data.get("tablesAnalysis"),
+                verifications=parsed_data.get("verifications")
             )
             
         except (json.JSONDecodeError, TypeError) as e:
