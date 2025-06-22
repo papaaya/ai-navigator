@@ -65,16 +65,17 @@ export default function DocumentAnalyzer() {
     setIsProcessing(true)
 
     try {
-      const response = await fetch("/api/process-document", {
+      const response = await fetch("http://localhost:8001/process-document", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
           filename: document?.filename,
+          content: "", // optional — send if you're parsing text client-side
           config: newConfig,
         }),
-      })
+      })      
 
       const data = await response.json()
       setResults(data)
