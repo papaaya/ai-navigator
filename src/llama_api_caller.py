@@ -46,6 +46,28 @@ class LlamaAPIService:
                 {"role": "user", "content": user_message}
             ],
             max_completion_tokens=max_tokens,
+            temperature=temperature
+        )
+        
+        return self._extract_response_data(response, model)
+    
+    def text_chat_with_response_format(self, system_prompt: str, user_message: str, 
+                                     model: Optional[str] = None, max_tokens: Optional[int] = None, 
+                                     temperature: Optional[float] = None) -> Dict[str, Any]:
+        """Generate text response using Llama API with structured output via system prompt"""
+        model = model or self.default_model
+        max_tokens = max_tokens or self.default_max_tokens
+        temperature = temperature or self.default_temperature
+        
+        # Combine system prompt with user message
+        combined_prompt = f"{system_prompt}\n\nUser Request: {user_message}"
+        
+        response = self.client.chat.completions.create(
+            model=model,
+            messages=[
+                {"role": "user", "content": combined_prompt}
+            ],
+            max_completion_tokens=max_tokens,
             temperature=temperature,
         )
         
@@ -133,8 +155,16 @@ class LlamaAPIService:
     
     def _extract_response_data(self, response, model: str) -> Dict[str, Any]:
         """Extract response data and metrics from Llama API response"""
-        # Extract response content
-        content = str(response.completion_message.content)
+        # Extract response content - handle different response formats
+        if hasattr(response.completion_message, 'content'):
+            if isinstance(response.completion_message.content, str):
+                content = response.completion_message.content
+            elif hasattr(response.completion_message.content, 'text'):
+                content = response.completion_message.content.text
+            else:
+                content = str(response.completion_message.content)
+        else:
+            content = str(response.completion_message)
         
         # Get token metrics
         total_tokens = 0
@@ -168,6 +198,10 @@ def multimodal_chat(message: str, image_urls: List[str], **kwargs) -> Dict[str, 
 def text_chat_with_system_prompt(system_prompt: str, user_message: str, **kwargs) -> Dict[str, Any]:
     """Convenience function for text chat with system prompt"""
     return llama_service.text_chat_with_system_prompt(system_prompt, user_message, **kwargs)
+
+def text_chat_with_response_format(system_prompt: str, user_message: str, **kwargs) -> Dict[str, Any]:
+    """Convenience function for text chat with response_format parameter"""
+    return llama_service.text_chat_with_response_format(system_prompt, user_message, **kwargs)
 
 def multimodal_chat_with_system_prompt(system_prompt: str, user_message: str, image_urls: List[str], **kwargs) -> Dict[str, Any]:
     """Convenience function for multimodal chat with system prompt"""
