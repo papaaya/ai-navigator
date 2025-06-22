@@ -1,20 +1,27 @@
+export type ProcessingStage = "upload" | "config" | "processing" | "results"
+export type OutputFormat = "py" | "js" | "json"
+export type ProcessingMode = "live" | "static"
+
 export interface DocumentData {
   file: File
   filename: string
-  content?: string
 }
 
 export interface ProcessingConfig {
-  mode: "static" | "live"
-  outputFormat: string
+  outputFormat: OutputFormat
+  mode: ProcessingMode
+}
+
+export interface VerificationItem {
+  claim: string
+  question: string
+  answer: string
 }
 
 export interface ProcessingResults {
   summary?: string
+  sections?: Record<string, string>
   generatedCode?: string
-  sections?: Array<{
-    title: string
-    content: string
-    reasoning: string
-  }>
+  tablesAnalysis?: string
+  verifications?: VerificationItem[]
 } 

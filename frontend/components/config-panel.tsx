@@ -3,15 +3,15 @@
 import { useState } from "react"
 import { Settings, Download, Zap, Code, FileJson } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import type { DocumentData, ProcessingConfig, OutputFormat, ProcessingMode } from "@/app/page"
+import type { DocumentData, ProcessingConfig, OutputFormat, ProcessingMode } from "@/types"
 
 interface ConfigPanelProps {
   config: ProcessingConfig
   onConfigSubmit: (config: ProcessingConfig) => void
-  document: DocumentData
+  documentData: DocumentData
 }
 
-export function ConfigPanel({ config, onConfigSubmit, document }: ConfigPanelProps) {
+export function ConfigPanel({ config, onConfigSubmit, documentData }: ConfigPanelProps) {
   const [localConfig, setLocalConfig] = useState<ProcessingConfig>(config)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
@@ -75,7 +75,7 @@ export function ConfigPanel({ config, onConfigSubmit, document }: ConfigPanelPro
           </div>
           <h2 className="text-2xl sm:text-3xl lg:text-4xl font-semibold text-gray-900 mb-3">Configure Analysis</h2>
           <p className="text-gray-600 text-base sm:text-lg max-w-2xl mx-auto leading-relaxed">
-            Customize how you want to analyze <span className="font-medium text-gray-800">"{document.filename}"</span>
+            Customize how you want to analyze <span className="font-medium text-gray-800">"{documentData.filename}"</span>
           </p>
         </div>
 
