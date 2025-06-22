@@ -5,35 +5,27 @@ import { UploadPanel } from "@/components/upload-panel"
 import { ConfigPanel } from "@/components/config-panel"
 import { ResultsPanel } from "@/components/results-panel"
 import AnimatedBackground from "@/components/animated-background"
+import type {
+  ProcessingStage,
+  DocumentData,
+  ProcessingConfig,
+  ProcessingResults,
+} from "@/types"
 
-export type ProcessingStage = "upload" | "config" | "processing" | "results"
-export type OutputFormat = "py" | "js" | "json"
-export type ProcessingMode = "live" | "static"
-
-export interface DocumentData {
-  file: File
-  filename: string
-  content?: string
-}
-
-export interface ProcessingConfig {
-  outputFormat: OutputFormat
-  mode: ProcessingMode
-}
-
-export interface ProcessingResults {
-  summary?: string
-  sections?: Array<{
-    title: string
-    content: string
-    reasoning: string
-  }>
-  generatedCode?: string
-  validation?: {
-    accuracy: boolean
-    hallucinated: boolean
-    verified: boolean
-  }
+const getFileAsBase64 = (file: File): Promise<string> => {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.readAsDataURL(file)
+    reader.onload = () => {
+      const base64Content = reader.result?.toString().split(",")[1]
+      if (base64Content) {
+        resolve(base64Content)
+      } else {
+        reject(new Error("Could not read file content as base64."))
+      }
+    }
+    reader.onerror = (error) => reject(error)
+  })
 }
 
 export default function DocumentAnalyzer() {
@@ -60,28 +52,45 @@ export default function DocumentAnalyzer() {
   }
 
   const handleConfigSubmit = async (newConfig: ProcessingConfig) => {
+    if (!document) {
+      console.error("No document to process")
+      setStage("upload")
+      return
+    }
+
     setConfig(newConfig)
     setStage("processing")
     setIsProcessing(true)
+    setResults(null)
 
     try {
+      const base64Content = await getFileAsBase64(document.file)
+
       const response = await fetch("http://localhost:8001/process-document", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
         },
         body: JSON.stringify({
-          filename: document?.filename,
-          content: "", // optional — send if you're parsing text client-side
+          filename: document.filename,
+          content: base64Content,
           config: newConfig,
         }),
-      })      
+      })
+
+      if (!response.ok) {
+        const errorText = await response.text()
+        throw new Error(`Analysis failed: ${response.status} ${errorText}`)
+      }
 
       const data = await response.json()
       setResults(data)
       setStage("results")
     } catch (error) {
       console.error("Processing failed:", error)
+      const errorMessage = error instanceof Error ? error.message : "An unknown error occurred."
+      setResults({ summary: `Error: ${errorMessage}` }) // Show error in UI
+      setStage("results")
     } finally {
       setIsProcessing(false)
     }
@@ -196,13 +205,13 @@ export default function DocumentAnalyzer() {
 
             {stage === "config" && document && (
               <div className="animate-in fade-in slide-in-from-right-8 duration-700">
-                <ConfigPanel config={config} onConfigSubmit={handleConfigSubmit} document={document} />
+                <ConfigPanel config={config} onConfigSubmit={handleConfigSubmit} documentData={document} />
               </div>
             )}
 
             {(stage === "processing" || stage === "results") && (
               <div className="animate-in fade-in slide-in-from-left-8 duration-700">
-                <ResultsPanel results={results} config={config} isProcessing={isProcessing} document={document} />
+                <ResultsPanel results={results} config={config} isProcessing={isProcessing} documentData={document} />
               </div>
             )}
           </div>
