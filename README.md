@@ -92,6 +92,7 @@ ai-navigator/
 **Team Member Names and Emails:**
 - `papaaya (aipapaaya@gmail.com)`
 - `mkaur711@uw.edu`
+- `rian.rahman10@gmail.com`
 
 **Github Project Link:**
 `https://github.com/papaaya/ai-navigator`
