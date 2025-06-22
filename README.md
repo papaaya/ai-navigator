@@ -90,7 +90,8 @@ ai-navigator/
 `aipapaaya@gmail.com`
 
 **Team Member Names and Emails:**
-`papaaya (aipapaaya@gmail.com)`
+- `papaaya (aipapaaya@gmail.com)`
+- `mkaur711@uw.edu`
 
 **Github Project Link:**
 `https://github.com/papaaya/ai-navigator`
