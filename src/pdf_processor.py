@@ -66,12 +66,12 @@ class PDFProcessor:
         text = self.extract_text_from_pdf(pdf_content)
         
         # Truncate if too long
-        max_length = 50000
+        max_length = 10000
         if len(text) > max_length:
             text = text[:max_length] + "..."
 
         # First pass: Extract citations
-        citations_prompt = f"Extract all the arXiv citations from Reference section of the paper including their title, authors and origins. Paper: {text}"
+        citations_prompt = f"Extract best 5 the arXiv citations from Reference section of the paper including their title, authors and origins. Paper: {text}"
         
         citations_response = llama_service.text_chat(
             message=citations_prompt,
@@ -83,7 +83,7 @@ class PDFProcessor:
         
         # Second pass: Extract arXiv IDs
         arxiv_extraction_prompt = f"""   
-        Extract the arXiv ID from the list of citations provided, including preprint arXiv ID. If there is no arXiv ID presented with the list, skip that citations.
+        Extract ONLY 1 best the arXiv ID from the list of citations provided, including preprint arXiv ID. If there is no arXiv ID presented with the list, skip that citations.
         
         Here are some examples on arXiv ID format:
         1. arXiv preprint arXiv:1607.06450, where 1607.06450 is the arXiv ID.

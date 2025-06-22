@@ -3,6 +3,7 @@ import requests
 import json
 import time
 import gradio as gr
+from gradio.themes import Soft
 from typing import List, Dict, Any
 
 # FastAPI backend URL
@@ -13,7 +14,7 @@ class GradioFrontend:
         self.paper_content = {"text": ""}
         self.backend_url = FASTAPI_URL
     
-    def process_arxiv_paper(self, arxiv_url: str, progress=gr.Progress()) -> str:
+    def process_arxiv_paper(self, arxiv_url: str, progress=gr.Progress()) -> tuple:
         """Process arXiv paper using FastAPI backend"""
         try:
             progress(0.1, "Sending request to backend...")
@@ -26,152 +27,145 @@ class GradioFrontend:
             )
             
             if response.status_code != 200:
-                return f"Error: {response.status_code} - {response.text}"
+                error_msg = f"Error: {response.status_code} - {response.text}"
+                return error_msg, gr.update(interactive=False)
             
             result = response.json()
             
             if not result["success"]:
-                return result["error"]
+                return result["error"], gr.update(interactive=False)
             
             # Store paper content for chat
             self.paper_content["text"] = result["paper_content"]
             
-            progress(1.0, "Ready for chat!")
-            return f"Total {result['total_word_count']} words and {result['num_references']} references ingested. You can now chat about the paper and citations."
+            progress(1.0, "Ready to generate code!")
+            status_message = f"Total {result['total_word_count']} words and {result['num_references']} references ingested. You can now generate code."
+            return status_message, gr.update(interactive=True)
             
         except requests.exceptions.Timeout:
-            return "Error: Request timed out. The paper might be too large or the server is busy."
+            return "Error: Request timed out. The paper might be too large or the server is busy.", gr.update(interactive=False)
         except requests.exceptions.ConnectionError:
-            return "Error: Cannot connect to backend server. Make sure the FastAPI server is running on localhost:8001"
+            return "Error: Cannot connect to backend server. Make sure the FastAPI server is running on localhost:8001", gr.update(interactive=False)
         except Exception as e:
-            return f"Error: {str(e)}"
-    
-    def chat_with_paper(self, message: str, history: List[List[str]]) -> tuple:
-        """Chat about the paper using FastAPI backend"""
-        if not message or not self.paper_content["text"]:
-            return history, ""
-        
-        # Append user message immediately
-        history.append([message, ""])
-        
+            return f"Error: {str(e)}", gr.update(interactive=False)
+
+    def generate_code(self, progress=gr.Progress()) -> tuple:
+        """Generate code from the paper content using FastAPI backend"""
+        if not self.paper_content["text"]:
+            return "Please process a paper first.", "", "", ""
+
         try:
-            # Call FastAPI backend for paper chat
+            progress(0.1, "Sending request to code generation endpoint...")
+
+            # Format paper content in one line with proper delimiters
+            formatted_content = self.paper_content["text"].replace('\n', '\\n').replace('\r', '\\r').replace('\t', '\\t')
+
+            # Debug: Print the request payload
+            request_payload = {"paper_content": formatted_content}
+            print(f"DEBUG: Sending request payload: {request_payload}")
+            print(f"DEBUG: Paper content length: {len(formatted_content)}")
+
             response = requests.post(
-                f"{self.backend_url}/paper/chat",
-                json={
-                    "message": message,
-                    "paper_content": self.paper_content["text"]
-                },
-                timeout=60
+                f"{self.backend_url}/code_gen",
+                json=request_payload,
+                timeout=600  # 10 minutes timeout for code gen
             )
-            
+
+            print(f"DEBUG: Response status: {response.status_code}")
+            print(f"DEBUG: Response text: {response.text[:500]}...")  # First 500 chars
+
             if response.status_code != 200:
                 error_msg = f"Error: {response.status_code} - {response.text}"
-                history[-1][1] = error_msg
-                return history, ""
+                return error_msg, "", "", ""
+
+            progress(0.8, "Decoding response...")
             
-            result = response.json()
-            full_response = result["response"]
-            
-            # Update the last message in history
-            history[-1][1] = full_response
-            
-            return history, ""
-            
+            try:
+                result = response.json()
+                
+                # Extract the components from the clean JSON response
+                python_code = result.get("python_code", "")
+                requirements = result.get("requirements_txt", "")
+                tests = result.get("tests_code", "")
+                
+                # Debug: Print what we extracted
+                print(f"DEBUG: Frontend extracted - Python code length: {len(python_code)}")
+                print(f"DEBUG: Frontend extracted - Requirements length: {len(requirements)}")
+                print(f"DEBUG: Frontend extracted - Tests length: {len(tests)}")
+                
+                return "Code generated successfully!", python_code, requirements, tests
+            except json.JSONDecodeError as e:
+                print(f"DEBUG: Frontend JSON decode error: {str(e)}")
+                print(f"DEBUG: Response text: {response.text[:500]}...")
+                return f"Error: Could not decode JSON from response. {str(e)}", response.text, "", ""
+
         except requests.exceptions.Timeout:
-            error_msg = "Error: Request timed out. Please try again."
-            history[-1][1] = error_msg
-            return history, ""
+            return "Error: Request timed out. Code generation is taking too long.", "", "", ""
         except requests.exceptions.ConnectionError:
-            error_msg = "Error: Cannot connect to backend server. Make sure the FastAPI server is running."
-            history[-1][1] = error_msg
-            return history, ""
+            return "Error: Cannot connect to backend server.", "", "", ""
         except Exception as e:
-            error_msg = f"Error: {str(e)}"
-            history[-1][1] = error_msg
-            return history, ""
-    
-    def clear_chat_history(self) -> tuple:
-        """Clear chat history"""
-        return [], ""
-    
+            return f"Error: {str(e)}", "", "", ""
+
     def create_interface(self):
         """Create the Gradio interface"""
-        with gr.Blocks(css=".orange-button {background-color: #FF7C00 !important; color: white;}") as demo:
-            gr.Markdown("# Research Analyzer - FastAPI Backend")
-            gr.Markdown("This interface uses the FastAPI backend for PDF processing and paper analysis.")
+        with gr.Blocks(theme=Soft(), css=".gradio-container {max-width: 960px !important; margin: auto !important;}") as demo:
+            gr.Markdown("# Paper to Code  paperswithcode UI")
+            gr.Markdown("Enter an arXiv URL to process a research paper and generate Python code implementation.")
             
-            with gr.Column():
-                input_text = gr.Textbox(
-                    label="ArXiv URL", 
-                    placeholder="https://arxiv.org/abs/1706.03762v7"
-                )
-                status_text = gr.Textbox(
-                    label="Status", 
-                    interactive=False,
-                    placeholder="Enter an arXiv URL and click Ingest to process the paper"
-                )
-                submit_btn = gr.Button("Ingest", elem_classes="orange-button")
-                submit_btn.click(
-                    fn=self.process_arxiv_paper, 
-                    inputs=input_text, 
-                    outputs=status_text
-                )
-                
-                gr.Markdown("## Chat with Llama")
-                chatbot = gr.Chatbot(
-                    label="Chat History",
-                    height=400
-                )
-                
             with gr.Row():
-                msg = gr.Textbox(
-                    label="Ask about the paper", 
-                    scale=5,
-                    placeholder="Ask questions about the ingested paper..."
-                )
-                submit_chat_btn = gr.Button("➤", elem_classes="orange-button", scale=1)
-                
-            submit_chat_btn.click(
-                self.chat_with_paper, 
-                [msg, chatbot], 
-                [chatbot, msg]
+                with gr.Column(scale=2):
+                    arxiv_input = gr.Textbox(
+                        label="ArXiv URL", 
+                        placeholder="e.g., https://arxiv.org/abs/1706.03762"
+                    )
+                    status_output = gr.Textbox(
+                        label="Status", 
+                        interactive=False,
+                        placeholder="Status will be shown here..."
+                    )
+                    with gr.Row():
+                        ingest_button = gr.Button("Ingest Paper", variant="secondary")
+                        generate_button = gr.Button("Generate Code", variant="primary", interactive=False)
+
+            with gr.Accordion("Generated Code", open=True):
+                python_output = gr.Code(label="Python Code", language="python", interactive=False)
+
+            ingest_button.click(
+                fn=self.process_arxiv_paper,
+                inputs=arxiv_input,
+                outputs=[status_output, generate_button]
             )
-            msg.submit(
-                self.chat_with_paper, 
-                [msg, chatbot], 
-                [chatbot, msg]
+
+            generate_button.click(
+                fn=self.generate_code,
+                inputs=None,
+                outputs=[status_output, python_output],
+                api_name="generate_code"
             )
-            
-            # Clear button
-            clear_btn = gr.Button("Clear Chat", elem_classes="orange-button")
-            clear_btn.click(
-                self.clear_chat_history,
-                outputs=[chatbot, msg]
-            )
-            
-            # Backend status
+
+            # Backend status check
             with gr.Accordion("Backend Status", open=False):
                 status_btn = gr.Button("Check Backend Status")
                 backend_status = gr.Textbox(label="Backend Status", interactive=False)
                 
                 def check_backend_status():
                     try:
-                        response = requests.get(f"{self.backend_url}/health", timeout=5)
+                        response = requests.get(f"{self.backend_url}/", timeout=5)
                         if response.status_code == 200:
-                            return "✅ Backend is running and healthy"
+                            return "✅ Backend is running."
                         else:
-                            return f"❌ Backend error: {response.status_code}"
+                            return f"❌ Backend returned status {response.status_code}"
                     except requests.exceptions.ConnectionError:
-                        return "❌ Cannot connect to backend. Make sure FastAPI server is running on localhost:8001"
+                        return "❌ Cannot connect to backend. Make sure FastAPI server is running."
                     except Exception as e:
                         return f"❌ Error: {str(e)}"
                 
                 status_btn.click(
-                    check_backend_status,
+                    fn=check_backend_status,
+                    inputs=None,
                     outputs=backend_status
                 )
-        
+
         return demo
 
 def main():
