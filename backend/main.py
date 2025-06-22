@@ -1,10 +1,11 @@
 import base64
 import json
 import fitz  # PyMuPDF
+import pdfplumber
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
-from typing import Optional, Dict
+from typing import Optional, Dict, List
 from llama_api_client import LlamaAPIClient
 from dotenv import load_dotenv
 import os
@@ -44,6 +45,7 @@ class ProcessingResponse(BaseModel):
     summary: Optional[str] = Field(None, description="Overall summary of the paper's contribution and findings.")
     sections: Optional[Dict[str, str]] = Field(None, description="Extracted sections like 'abstract', 'methodology', and 'results'.")
     generatedCode: Optional[str] = Field(None, description="Python code generated based on the paper's methodology.")
+    tablesAnalysis: Optional[str] = Field(None, description="The AI's analysis of data tables found in the document.")
 
 # --- Helper Functions ---
 
@@ -56,7 +58,32 @@ def extract_text_from_pdf_bytes(pdf_bytes: bytes) -> str:
         print(f"Error extracting text from PDF: {e}")
         raise HTTPException(status_code=400, detail="Failed to parse the provided PDF file.")
 
-def generate_analysis_prompt(document_text: str) -> str:
+def extract_tables_as_text(pdf_bytes: bytes) -> str:
+    """Extracts all tables from a PDF and formats them as markdown strings."""
+    all_tables_text = ""
+    try:
+        with pdfplumber.open(pdf_bytes) as pdf:
+            for i, page in enumerate(pdf.pages):
+                tables = page.extract_tables()
+                if not tables:
+                    continue
+                
+                all_tables_text += f"--- Page {i+1} Tables ---\n\n"
+                for j, table in enumerate(tables):
+                    if not table: continue
+                    # Convert table to markdown format
+                    header = " | ".join(str(cell) for cell in table[0])
+                    separator = " | ".join(["---"] * len(table[0]))
+                    body = "\n".join([" | ".join(str(cell) for cell in row) for row in table[1:]])
+                    
+                    markdown_table = f"**Table {j+1}**\n{header}\n{separator}\n{body}\n\n"
+                    all_tables_text += markdown_table
+    except Exception as e:
+        print(f"Warning: Could not extract tables from PDF: {e}")
+        return "" # Return empty string on failure, not a critical error
+    return all_tables_text
+
+def generate_analysis_prompt(document_text: str, tables_text: str) -> str:
     """Creates a prompt for a multi-stage analysis of a research paper."""
     json_schema = {
         "summary": "A concise summary of the paper's main contributions, methodology, and key results.",
@@ -65,42 +92,53 @@ def generate_analysis_prompt(document_text: str) -> str:
             "methodology": "A detailed explanation of the methodology, algorithm, or core techniques described.",
             "results": "A summary of the key findings, experimental results, or evaluation metrics."
         },
-        "generatedCode": "A functional Python code implementation based on the 'methodology' section. The code should be complete and runnable if possible."
+        "generatedCode": "A functional Python code implementation based on the 'methodology' section. The code should be complete and runnable if possible.",
+        "tablesAnalysis": "If tables were found, provide a detailed analysis and interpretation of the data presented in them. If no tables were found, this should be null."
     }
 
-    return f"""
-Analyze the following research paper text. Your task is to perform a comprehensive analysis and structure your output as a valid JSON object.
+    prompt_sections = [
+        "Analyze the following research paper. Your task is to perform a comprehensive analysis and structure your output as a valid JSON object.",
+        "**Document Text:**",
+        "---",
+        document_text[:10000], # Keep text context reasonable
+        "---"
+    ]
 
-**Instructions:**
-1.  **Summarize:** Create a concise summary of the paper's main contributions and findings.
-2.  **Extract Sections:** Identify and extract the content for the 'abstract', 'methodology', and 'results' sections. If a section is not clearly present, provide the most relevant information you can find.
-3.  **Generate Code:** Based on the extracted methodology, write a functional Python code snippet that implements the described algorithm or technique.
+    if tables_text:
+        prompt_sections.extend([
+            "**Extracted Tables:**",
+            "---",
+            tables_text[:4000], # Keep table context reasonable
+            "---"
+        ])
+        
+    prompt_sections.extend([
+        "**Instructions:**",
+        "1.  **Summarize:** Create a concise summary of the paper's main contributions and findings.",
+        "2.  **Extract Sections:** Identify and extract the content for the 'abstract', 'methodology', and 'results' sections. If a section is not clearly present, provide the most relevant information.",
+        "3.  **Analyze Tables:** If table data is provided above, analyze it and summarize its significance.",
+        "4.  **Generate Code:** Based on the extracted methodology, write a functional Python code snippet.",
+        "\n**Output Format:**",
+        "You MUST output a single, valid JSON object that conforms exactly to the following schema. Do not include any explanatory text, markdown formatting, or notes outside of the JSON structure.",
+        "\n**CRITICAL:** All string values within the JSON, especially in `generatedCode`, MUST be properly escaped. For example, backslashes (\\\\) and double quotes (\") must be escaped (e.g., \"my string with a \\\\ backslash and a \\\" quote.\").",
+        "\n**JSON Schema:**",
+        json.dumps(json_schema, indent=2)
+    ])
 
-**Document Text:**
----
-{document_text[:12000]}
----
-
-**Output Format:**
-You MUST output a single, valid JSON object that conforms exactly to the following schema. Do not include any explanatory text, markdown formatting, or notes outside of the JSON structure.
-
-**CRITICAL:** All string values within the JSON, especially in `generatedCode`, MUST be properly escaped. For example, backslashes (\\) and double quotes (") must be escaped (e.g., "my string with a \\\\ backslash and a \\" quote.").
-
-**JSON Schema:**
-{json.dumps(json_schema, indent=2)}
-"""
+    return "\n".join(prompt_sections)
 
 # --- API Routes ---
 
 @app.post("/process-document", response_model=ProcessingResponse)
 async def process_document(request: DocumentRequest):
     try:
-        # 1. Decode and extract text from the uploaded file
+        # 1. Decode and extract content from the uploaded file
         pdf_bytes = base64.b64decode(request.content)
         document_text = extract_text_from_pdf_bytes(pdf_bytes)
+        tables_text = extract_tables_as_text(pdf_bytes)
         
         # 2. Generate the detailed analysis prompt
-        prompt = generate_analysis_prompt(document_text)
+        prompt = generate_analysis_prompt(document_text, tables_text)
 
         # 3. Call the LLaMA 4 API
         response = client.chat.completions.create(
@@ -134,6 +172,7 @@ async def process_document(request: DocumentRequest):
                 summary=parsed_data.get("summary"),
                 sections=parsed_data.get("sections"),
                 generatedCode=parsed_data.get("generatedCode"),
+                tablesAnalysis=parsed_data.get("tablesAnalysis"),
             )
             
         except (json.JSONDecodeError, TypeError) as e:

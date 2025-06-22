@@ -1,6 +1,6 @@
 "use client"
 
-import { Download, AlertCircle, Loader2, FileText, Code, BookOpen, BrainCircuit } from "lucide-react"
+import { Download, AlertCircle, Loader2, FileText, Code, BookOpen, BrainCircuit, Table } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import type { DocumentData, ProcessingConfig, ProcessingResults } from "@/types"
 
@@ -123,6 +123,12 @@ export function ResultsPanel({ results, config, isProcessing, documentData }: Re
               <p className="whitespace-pre-wrap">{value}</p>
             </ResultCard>
         ))}
+
+        {results.tablesAnalysis && (
+          <ResultCard icon={<Table className="w-5 h-5 mr-3 text-yellow-600"/>} title="Tables Analysis">
+            <p className="whitespace-pre-wrap">{results.tablesAnalysis}</p>
+          </ResultCard>
+        )}
 
         {results.generatedCode && (
           <ResultCard icon={<Code className="w-5 h-5 mr-3 text-green-600"/>} title="Generated Code">

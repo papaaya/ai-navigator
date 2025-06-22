@@ -16,4 +16,5 @@ export interface ProcessingResults {
   summary?: string
   sections?: Record<string, string>
   generatedCode?: string
+  tablesAnalysis?: string
 } 
